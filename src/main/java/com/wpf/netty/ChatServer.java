@@ -5,8 +5,12 @@ import com.wpf.netty.handler.ChannelInit;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelOption;
+import io.netty.channel.group.ChannelGroup;
+import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.util.concurrent.ImmediateEventExecutor;
+import io.netty.util.concurrent.ImmediateExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,18 +20,18 @@ import org.slf4j.LoggerFactory;
 public class ChatServer extends AbstractIdleService {
     private static final Logger LOG = LoggerFactory.getLogger(ChatServer.class);
 
+    private ChannelGroup channels = new DefaultChannelGroup(ImmediateEventExecutor.INSTANCE);
+
     @Override public void startUp() throws Exception {
         NioEventLoopGroup workGroup = new NioEventLoopGroup();
         NioEventLoopGroup accessGroup = new NioEventLoopGroup();
         try {
             ServerBootstrap bootstrap = new ServerBootstrap();
-            bootstrap.group(accessGroup, workGroup).channel(NioServerSocketChannel.class)
-                .childHandler(new ChannelInit())
-                .option(ChannelOption.SO_BACKLOG, 128)
-                .childOption(ChannelOption.SO_KEEPALIVE, true);
+            bootstrap.group(workGroup).channel(NioServerSocketChannel.class)
+                .childHandler(new ChannelInit(channels));
 
-            ChannelFuture future = bootstrap.bind(7658).sync();
-            future.channel().closeFuture().sync();
+            ChannelFuture future = bootstrap.bind(7658).syncUninterruptibly();
+            future.channel().closeFuture().syncUninterruptibly();
         } finally {
             workGroup.shutdownGracefully();
             accessGroup.shutdownGracefully();
